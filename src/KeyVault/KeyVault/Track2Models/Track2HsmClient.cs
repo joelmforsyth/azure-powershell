@@ -7,7 +7,6 @@ using Microsoft.Azure.KeyVault.Models;
 using System;
 using System.Collections;
 using System.Linq;
-using AdminSdk = Azure.Security.KeyVault.Administration;
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
@@ -158,26 +157,26 @@ namespace Microsoft.Azure.Commands.KeyVault.Track2Models
             }
         }
 
-        public Uri BackupHsm(string hsmName, Uri blobStorageUri, string sasToken)
+        public KeyVaultBackupResult BackupHsm(string hsmName, Uri blobStorageUri, string sasToken)
         {
             var client = CreateBackupClient(hsmName);
             var backup = client.StartBackup(blobStorageUri, sasToken);
-            Uri backupUri;
+            KeyVaultBackupResult result;
             try
             {
-                backupUri = backup.WaitForCompletionAsync().ConfigureAwait(false).GetAwaiter().GetResult().Value;
+                result = backup.WaitForCompletionAsync().ConfigureAwait(false).GetAwaiter().GetResult().Value;
             }
             catch
             {
                 throw;
             }
-            return backupUri;
+            return result;
         }
 
-        public void RestoreHsm(string hsmName, Uri backupLocation, string sasToken, string backupFolder)
+        public void RestoreHsm(string hsmName, Uri folderUri, string sasToken)
         {
             var client = CreateBackupClient(hsmName);
-            var restore = client.StartRestore(backupLocation, sasToken, backupFolder);
+            var restore = client.StartRestore(folderUri, sasToken);
             try
             {
                 restore.WaitForCompletionAsync().ConfigureAwait(false).GetAwaiter().GetResult();
@@ -187,13 +186,13 @@ namespace Microsoft.Azure.Commands.KeyVault.Track2Models
                 throw;
             }
         }
-        
-        public void SelectiveRestoreHsm(string hsmName, string keyName, Uri backupLocation, string sasToken, string backupFolder)
+
+        public void SelectiveRestoreHsm(string hsmName, string keyName, Uri folderUri, string sasToken)
         {
             var client = CreateBackupClient(hsmName);
             try
             {
-                client.StartSelectiveRestore(keyName, backupLocation, sasToken, backupFolder)
+                client.StartSelectiveKeyRestore(keyName, folderUri, sasToken)
                     .WaitForCompletionAsync().ConfigureAwait(false).GetAwaiter().GetResult();
             }
             catch
@@ -224,7 +223,7 @@ namespace Microsoft.Azure.Commands.KeyVault.Track2Models
         internal PSKeyVaultRoleAssignment CreateHsmRoleAssignment(string hsmName, string scope, string roleDefinitionId, string principalId)
         {
             var client = CreateRbacClient(hsmName);
-            var roleAssignment = client.CreateRoleAssignment(new KeyVaultRoleScope(scope), new AdminSdk.Models.KeyVaultRoleAssignmentProperties(roleDefinitionId, principalId));
+            var roleAssignment = client.CreateRoleAssignment(new KeyVaultRoleScope(scope), roleDefinitionId, principalId);
             return new PSKeyVaultRoleAssignment(roleAssignment, hsmName);
         }
 

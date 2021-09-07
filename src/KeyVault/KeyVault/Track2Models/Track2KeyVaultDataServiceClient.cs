@@ -391,17 +391,19 @@ namespace Microsoft.Azure.Commands.KeyVault.Track2Models
         #region Full backup restore
         public Uri BackupHsm(string hsmName, Uri blobStorageUri, string sasToken)
         {
-            return HsmClient.BackupHsm(hsmName, blobStorageUri, sasToken);
+            return HsmClient.BackupHsm(hsmName, blobStorageUri, sasToken).FolderUri;
         }
 
         public void RestoreHsm(string hsmName, Uri backupLocation, string sasToken, string backupFolder)
         {
-            HsmClient.RestoreHsm(hsmName, backupLocation, sasToken, backupFolder);
+            var backupUri = new Uri(System.IO.Path.Combine(backupLocation.ToString(), backupFolder));
+            HsmClient.RestoreHsm(hsmName, backupUri, sasToken);
         }
 
         public void SelectiveRestoreHsm(string hsmName, string keyName, Uri backupLocation, string sasToken, string backupFolder)
         {
-            HsmClient.SelectiveRestoreHsm(hsmName, keyName, backupLocation, sasToken, backupFolder);
+            var backupUri = new Uri(System.IO.Path.Combine(backupLocation.ToString(), backupFolder));
+            HsmClient.SelectiveRestoreHsm(hsmName, keyName, backupUri, sasToken);
         }
         #endregion
 
@@ -492,7 +494,7 @@ namespace Microsoft.Azure.Commands.KeyVault.Track2Models
             HsmClient.PurgeKey(managedHsmName, keyName);
         }
 
-        public PSKeyVaultKey ImportManagedHsmKey(string managedHsmName, string keyName, JsonWebKey webKey) 
+        public PSKeyVaultKey ImportManagedHsmKey(string managedHsmName, string keyName, JsonWebKey webKey)
         {
             return HsmClient.ImportKey(managedHsmName, keyName, webKey);
         }

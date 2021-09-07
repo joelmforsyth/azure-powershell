@@ -1,4 +1,4 @@
-﻿using Azure.Security.KeyVault.Administration.Models;
+﻿using Azure.Security.KeyVault.Administration;
 using System.Linq;
 
 namespace Microsoft.Azure.Commands.KeyVault.Models
@@ -21,8 +21,8 @@ namespace Microsoft.Azure.Commands.KeyVault.Models
         {
             AllowedActions = permission.Actions.ToArray();
             DeniedActions = permission.NotActions.ToArray();
-            AllowedDataActions = permission.DataActions.ToArray();
-            DeniedDataActions = permission.NotDataActions.ToArray();
+            AllowedDataActions = permission.DataActions.Select(x => x.ToString()).ToArray();
+            DeniedDataActions = permission.NotDataActions.Select(x => x.ToString()).ToArray();
         }
     }
 }
