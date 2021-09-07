@@ -171,19 +171,19 @@ Describe "BackupAndRestoreAzManagedHsmKey" {
 Describe "BackupAndRestoreAzManagedHsm" {
     $script:backupUri = ''
     $containerUri = "https://$storageAccount.blob.core.windows.net/$containerName"
-    It "Backup then restore a managed HSM" {
+    It "Backup a managed HSM" {
         $script:backupUri = Backup-AzKeyVault -HsmName $hsmName -StorageContainerUri $containerUri -SasToken $sasToken
         $script:backupUri | Should -Not -Be $null
     }
 
-    It "Selective restore a managed HSM"{
+    It "Selective restore a key to managed HSM"{
         $script:backupUri = [System.Uri]::new($script:backupUri)
         $backupFolder = $script:backupUri.Segments[$script:backupUri.Segments.Length - 1]
         $restoreResult = Restore-AzKeyVault -HsmName $hsmName -KeyName $keyName -StorageContainerUri $containerUri -BackupFolder $backupFolder -SasToken $sasToken -PassThru
         $restoreResult | Should -Be $True
     }
 
-    It "Restore a managed HSM" {
+    It "Restore whole managed HSM" {
         $script:backupUri = [System.Uri]::new($script:backupUri)
         $backupFolder = $script:backupUri.Segments[$script:backupUri.Segments.Length - 1]
         # Clean hsm

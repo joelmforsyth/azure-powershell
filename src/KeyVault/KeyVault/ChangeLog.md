@@ -19,10 +19,6 @@
 -->
 ## Upcoming Release
 * Supported creating custom role definitions on managed HSM via `New-AzKeyVaultRoleDefinition`.
-* (remove me) because of the breaking change in Azure.Security.KeyVault.Administration SDK, I made some code change to:
-  * HSM backup restore
-  * HSM selective key restore
-  * All existing RBAC stuff
 * Enabled managing resources in other subscriptions without switching the context by adding `-Subscription <String>`.
 
 ## Version 3.5.0
