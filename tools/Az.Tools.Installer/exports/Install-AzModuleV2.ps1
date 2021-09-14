@@ -22,7 +22,9 @@ function Install-AzModuleV2 {
         Installs Azure PowerShell modules.
 
     .Example
-        C:\PS> Install-AzModule -Name Storage,Compute,Network -Repository PSGallery
+        C:\PS> Install-AzModuleV2 -Repository PSGallery -RemoveAzureRm -RequiredAzVersion 6.3 -UseExactAccountVersion -Confirm:$false -Debug
+
+        C:\PS> Install-AzModuleV2 -Name Storage,Compute,Network,Blockchain -Repository PSGallery -AllowPrerelease -Confirm:$false -Debug
 
 #>
 
@@ -75,6 +77,8 @@ function Install-AzModuleV2 {
         $cmdStarted = Get-Date
 
         $ErrorActionPreference = 'Stop'
+        $ppsedition = $PSVersionTable.PSEdition
+        Write-Debug "Powershell $ppsedition Version $($PSVersionTable.PSVersion)"
 
         $Name = Normalize-ModuleName $Name
 
@@ -91,7 +95,7 @@ function Install-AzModuleV2 {
 
         $modules = Get-AzModuleFromRemote @findModuleParams | Sort-Object -Property Name
         
-        $modules
+        Write-Output $modules
 
         if ($RemoveAzureRm -and ($Force -or $PSCmdlet.ShouldProcess('Remove AzureRm modules', 'AzureRm modules', 'Remove'))) {
             Uninstall-AzureRM
@@ -156,40 +160,50 @@ function Install-AzModuleV2 {
             
             if ($Force -or $PSCmdlet.ShouldProcess("Install module Az.Accounts version $($modules[0].Version)", "Az.Accounts version $($modules[0].Version)", "Install")) {
                 PowerShellGet\Install-Module -Name 'Az.Accounts' -RequiredVersion $modules[0].Version @installModuleParams
-                $modules = $modules[1..($modules.Length - 1)]
             }
+            $modules = $modules[1..($modules.Length - 1)]
 
-            $module = $null
-            $result = @()
-            $find = @()
-            $max_job_count = 10
-            foreach ($module in $modules) {
-                $running = @(Get-Job -State 'Running')
-                if ($running -and $running.Count -eq $max_job_count) {
-                    $null = ($running | Wait-Job -Any)
+            try
+            {
+                $jobs = @()
+                $module = $null
+                foreach ($module in $modules) {
+                    if ($Force -or $PSCmdlet.ShouldProcess("Install module $($module.Name) version $($module.Version)", "$($module.Name) version $($module.Version)", "Install")) {
+                        $jobs  += Start-ThreadJob -Name "Az.Tools.Installer" {
+                            $tmodule = $using:module
+                            Write-Output "$($tmodule.Name) ver $($tmodule.Version)"
+                            PowerShellGet\Install-Module -Name $tmodule.Name -RequiredVersion $tmodule.Version @using:installModuleParams
+                        } -ThrottleLimit 5 <#-StreamingHost $Host#>
+                    }
                 }
-                Get-Job | Where-Object {$_.State -eq 'Completed'} | Foreach-Object {
-                    $find += Receive-Job $_
-                    Remove-Job $_
-                }
-
-                if ($Force -or $PSCmdlet.ShouldProcess("Install module $($module.Name) version $($module.Version)", "$($module.Name) version $($module.Version)", "Install")) {
-                    $v = $module.Version
-                    $n = $module.Name
-                    $null = Start-ThreadJob {
-                        PowerShellGet\Install-Module -Name $using:n -RequiredVersion $using:v @using:installModuleParams
+    
+                if ($Force -or !$WhatIfPreference) {
+                    $result = $null
+                    $job = $null
+                    foreach ($job in $jobs) {
+                        $job = Wait-Job $job
+                        $result = Receive-Job $job
+                        if ($job.State -eq 'Completed') {
+                            Write-Debug  "[$($MyInvocation.MyCommand)] $result installation complete"
+                        }
+                        else {
+                            Write-Warning  "[$($MyInvocation.MyCommand)] $result installation fail"
+                        }
+                        Remove-Job $job -Confirm:$false
                     }
                 }
             }
-
-            $null = Get-Job | Wait-Job
-            Get-Job | Foreach-Object {
-                $result += Receive-Job $_
-                Remove-Job $_ -Confirm:$false
+            finally
+            {
+                $jobs = Get-Job -Name "Az.Tools.Installer" -ErrorAction 'SilentlyContinue'
+                if ($jobs) {
+                    Stop-Job $jobs
+                    Remove-Job $jobs -Confirm:$false
+                }
             }
-            Write-Debug "[$($MyInvocation.MyCommand)] Modules install complete"
+
             $durationInstallation = (Get-Date) - $InstallStarted
-            Write-Debug "Time Elapsed Total: $($durationInstallation.TotalSeconds)s"
+            Write-Debug "[$($MyInvocation.MyCommand)] Modules install complete; Time Elapsed Total: $($durationInstallation.TotalSeconds)s"
         }
         finally {
             if ($Force -or !$WhatIfPreference) {
