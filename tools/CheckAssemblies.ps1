@@ -23,17 +23,19 @@ function Get-PreloadAssemblies{
         [string] $ModuleFolder
     )
 
-    $preloadAssemblies = @()
     if($PSEdition -eq 'Core') {
-        $preloadFolderName = "NetCoreAssemblies"
+        $preloadFolderName = @("NetCoreAssemblies", "AzSharedAlcAssemblies")
     } else {
         $preloadFolderName = "PreloadAssemblies"
     }
-    $preloadFolder = [System.IO.Path]::Combine($ModuleFolder, $preloadFolderName)
-    if(Test-Path $preloadFolder){
-        $preloadAssemblies = (Get-ChildItem $preloadFolder -Filter "*.dll").Name | ForEach-Object { $_ -replace ".dll", ""}
+    $preloadFolderName | ForEach-Object {
+        $preloadAssemblies = @()
+        $preloadFolder = [System.IO.Path]::Combine($ModuleFolder, $_)
+        if(Test-Path $preloadFolder){
+            $preloadAssemblies = (Get-ChildItem $preloadFolder -Filter "*.dll").Name | ForEach-Object { $_ -replace ".dll", ""}
+        }
+        $preloadAssemblies
     }
-    $preloadAssemblies
 }
 
 $ProjectPaths = @( "$PSScriptRoot\..\artifacts\$BuildConfig" )
@@ -46,7 +48,8 @@ $DependencyMap = Import-Csv -Path $DependencyMapPath
 $ModuleManifestFiles = $ProjectPaths | ForEach-Object { Get-ChildItem -Path $_ -Filter "*.psd1" -Recurse | Where-Object { $_.FullName -like "*$($BuildConfig)*" -and `
             $_.FullName -notlike "*Netcore*" -and `
             $_.FullName -notlike "*dll-Help.psd1*" -and `
-            $_.FullName -notlike "*Stack*" } }
+            (-not [Tools.Common.Utilities.ModuleFilter]::IsAzureStackModule($_.FullName)) } }
+
 
 foreach ($ModuleManifest in $ModuleManifestFiles) {
     Write-Host "checking $($ModuleManifest.Fullname)"
